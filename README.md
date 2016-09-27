@@ -1,6 +1,6 @@
 # xen2osp (via ansible)
 
-This is a simple ansible playbook that will take a running instance on XenServer 6.5 and migrate it over to OpenStack's image store, glance.
+This is a simple ansible playbook that will take a running instance on XenServer 6.5 and migrate it over to OpenStacke.
 
 Most of the heavy lifting is done by [virt-v2v](http://libguestfs.org/virt-v2v.1.html). While it supports exporting from Xen, it doesn't seem to like to talk to XenServer 6.5. The playbooks build [xva-img](https://github.com/eriklax/xva-img) as an intermediate conversion step. There is an [RFE](https://bugzilla.redhat.com/show_bug.cgi?id=1253593) for virt-v2v to get proper support for Citrix Xen, but for now we lean on xva-img.
 
