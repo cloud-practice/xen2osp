@@ -5,7 +5,7 @@
     os_server:
       state: present
       auth:
-        auth_url: 'http://10.12.133.100:5000/v2.0/'
+        auth_url: 'http://openstack.example.com:5000/v2.0/'
         username: 'user0'
         password: 'P@ssw0rd'
         project_name: 'tenant0'
