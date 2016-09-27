@@ -1,0 +1,80 @@
+---
+- hosts: all
+  tasks:
+  - name: mount nfs share
+    mount:
+      name: '{{ nfs_mount }}'
+      src: '{{ nfs_share }}'
+      fstype: nfs
+      state: mounted
+      opts: noauto
+
+- hosts: xenserver
+  tasks:
+  - name: get vm power state
+    shell: xe vm-list name-label={{ vm_name }} | grep 'power-state' | awk '{print $4}'
+    register: power_state
+  - debug: var=power_state verbosity=2
+  - name: stop vm
+    command: xe vm-shutdown vm={{ vm_name }}
+    when: 
+    - power_state.stdout == 'running'
+  - name: export image
+    command: xe vm-export filename={{ nfs_mount }}/{{ vm_name }}.xva vm={{ vm_name }}
+    args:
+      creates: '{{ nfs_mount }}/{{ vm_name }}.xva'
+
+- hosts: builder
+  tasks:
+  - name: install required packages
+    yum:
+      name: '{{ item }}'
+      state: present
+    with_items:
+    - virt-v2v
+    - cmake
+    - gcc-c++
+    - python-glanceclient
+  - name: clone xva-img git repo
+    git:
+      repo: 'https://github.com/eriklax/xva-img.git'
+      dest: '/opt/xva-img'
+    tags:
+    - gitrepo
+  - name: run cmake on project
+    command: cmake .
+    args:
+      chdir: '/opt/xva-img'
+      creates: '/opt/xva-img/Makefile'
+    tags:
+    - cmake
+  - name: make and install xva-img binary
+    command: make install
+    args:
+      chdir: '/opt/xva-img'
+      creates: '/usr/local/bin/xva-img'
+  - name: create dir for unpacked image
+    file:
+      path: '{{ nfs_mount }}/{{ vm_name }}'
+      state: directory
+  - name: unpack xva tarball
+    unarchive:
+      src: '{{ nfs_mount }}/{{ vm_name }}.xva'
+      dest: '{{ nfs_mount }}/{{ vm_name }}'
+      remote_src: yes
+    register: tarball
+    tags:
+    - tarball
+  - name: get weird Ref number
+    shell: ls {{ nfs_mount }}/{{ vm_name }} | grep Ref
+    register: ref
+  - debug: var=ref verbosity=2
+  - name: convert xva to raw
+    command: xva-img -p disk-export {{ nfs_mount }}/{{ vm_name }}/{{ ref.stdout }}/ {{ nfs_mount }}/{{ vm_name }}.raw
+    args:
+      creates: '{{ nfs_mount }}/{{ vm_name }}.raw'
+  - name: prep image and upload to glance
+    command: virt-v2v -i disk '{{ nfs_mount }}/{{ vm_name }}.raw' -o glance
+    tags:
+    - virtv2v
+    environment: '{{ osp_env }}'

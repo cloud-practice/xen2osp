@@ -1,0 +1,9 @@
+---
+nfs_mount: '/xen2osp'
+nfs_share: 'nfsserver.example.com:/exports/fileshare/xen'
+osp_env:
+  OS_USERNAME: 'user0'
+  OS_TENANT_NAME: 'tenant0'
+  OS_PASSWORD: 'P@ssw0rd'
+  OS_AUTH_URL: 'http://openstack.example.com:5000/v2.0/'
+  LIBGUESTFS_BACKEND: 'direct'
