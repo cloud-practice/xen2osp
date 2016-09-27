@@ -1,0 +1,19 @@
+---
+- hosts: builder
+  tasks:
+  - name: boot an instance in nova
+    os_server:
+      state: present
+      auth:
+        auth_url: 'http://10.12.133.100:5000/v2.0/'
+        username: 'user0'
+        password: 'P@ssw0rd'
+        project_name: 'tenant0'
+      name: '{{ instance_name }}'
+      image: '{{ image_name }}'
+      key_name: user0
+      flavor: 2
+      floating_ip_pools: nova
+    register: os_server
+  - debug: var=os_server.server.accessIPv4
+
