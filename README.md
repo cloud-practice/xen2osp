@@ -6,12 +6,10 @@ Most of the heavy lifting is done by [virt-v2v](http://libguestfs.org/virt-v2v.1
 
 ##Setup
 
-Modify the ./group_vars/all file to suit your environment:
+Modify the `./group_vars/all` file to suit your environment:
 
 ```
 ---
-# export_vm: 'true|false'
-export_vm: 'true'
 nfs_mount: '/xen2osp'
 nfs_share: 'nfsserver.example.com:/exports/fileshare/xen'
 osp_env:
