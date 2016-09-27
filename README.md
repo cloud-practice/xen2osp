@@ -36,11 +36,13 @@ When the playbook is run, a few things will happen:
 - the instance will be stopped and exported from the xenserver
 - the builder will sync and build the xva-img repo (first time only)
 - then the builder will run virt-v2v against the raw image and upload to glance
+- the image is converted in to a bootable cinder volume
+- a nova instance is booted with the newly created volume
 
-The playbook is run, supplying an extra argument to specifc the VM to export. It is invoked like so:
+The playbook is run supplying an extra argument to specifc the VM to export. At the end of a run, the IP of the new instance is displayed. It is invoked like so:
 
 ```
-# ansible-playbook -i hosts xen2osp.yaml --extra-vars "vm_name=rhel7xenvm0"
+# ansible-playbook -i hosts xen2cinder2osp.yaml --extra-vars "vm_name=rhel7xenvm0"
 
 PLAY [all] *********************************************************************
 
@@ -104,17 +106,37 @@ changed: [builder.example.com]
 TASK [prep image and upload to glance] *****************************************
 changed: [builder.example.com]
 
+TASK [upload volume to cinder] *************************************************
+changed: [builder.example.com]
+
+TASK [boot an instance in nova] ************************************************
+changed: [builder.example.com]
+
+TASK [debug] *******************************************************************
+ok: [builder.example.com] => {
+    "os_server.server.accessIPv4": "10.12.133.181"
+}
+
 PLAY RECAP *********************************************************************
-builder.example.com        : ok=12   changed=5    unreachable=0    failed=0   
-xenserver.example.com      : ok=6    changed=2    unreachable=0    failed=0   
+builder.example.com        : ok=15   changed=7    unreachable=0    failed=0
+xenserver.example.com      : ok=6    changed=3    unreachable=0    failed=0
 
 #
+```
+
+The VM is now accessible from its new IP:
+
+```
+$ ssh root@10.12.133.181
+root@10.12.133.181's password:
+Last login: Tue Sep 27 17:07:33 2016 from 10.12.33.38
+[root@rhel7xenvm0 ~]#
 ```
 
 If you already have a bunch of VMs exported from Xen and just need to convert and import them to glance, the playbook can be run with a filter against only the builder host. It will skip all the Xen steps, and assume an exported image is already available on the NFS share:
 
 ```
-# ansible-playbook -i hosts xen2osp.yaml --extra-vars "vm_name=rhel6srv" -l builder
+# ansible-playbook -i hosts xen2cinder2osp.yaml --extra-vars "vm_name=rhel6srv" -l builder
 
 PLAY [all] *********************************************************************
 
@@ -162,66 +184,24 @@ changed: [builder.example.com]
 TASK [prep image and upload to glance] *****************************************
 changed: [builder.example.com]
 
+TASK [upload volume to cinder] *************************************************
+changed: [builder.example.com]
+
+TASK [boot an instance in nova] ************************************************
+changed: [builder.example.com]
+
+TASK [debug] *******************************************************************
+ok: [builder.example.com] => {
+    "os_server.server.accessIPv4": "10.12.133.182"
+}
+
 PLAY RECAP *********************************************************************
-builder.example.com        : ok=12   changed=5    unreachable=0    failed=0   
+builder.example.com        : ok=15   changed=7    unreachable=0    failed=0
 
-# 
+#
 ```
 
-The image is now uploaded in glance, and can be used to boot a new instance:
-
-```
-$ glance image-list
-+--------------------------------------+------------------------+-------------+------------------+--------------+--------+
-| ID                                   | Name                   | Disk Format | Container Format | Size         | Status |
-+--------------------------------------+------------------------+-------------+------------------+--------------+--------+
-| 5b4414b5-bc54-418d-8845-742843deef85 | rhel6srv               | raw         | bare             | 10737418240  | active |
-| 6d6e5048-17b6-49f3-a5a6-fe9e6d6c66ba | rhel7xenvm0            | raw         | bare             | 10737418240  | active |
-+--------------------------------------+------------------------+-------------+------------------+--------------+--------+
-$ nova boot xen2osp --flavor 2 --image  rhel7xenvm0 --key-name user0
-+--------------------------------------+----------------------------------------------------+
-| Property                             | Value                                              |
-+--------------------------------------+----------------------------------------------------+
-| OS-DCF:diskConfig                    | MANUAL                                             |
-| OS-EXT-AZ:availability_zone          |                                                    |
-| OS-EXT-SRV-ATTR:host                 | -                                                  |
-| OS-EXT-SRV-ATTR:hostname             | xen2osp                                            |
-| OS-EXT-SRV-ATTR:hypervisor_hostname  | -                                                  |
-| OS-EXT-SRV-ATTR:instance_name        | instance-00000089                                  |
-| OS-EXT-SRV-ATTR:kernel_id            |                                                    |
-| OS-EXT-SRV-ATTR:launch_index         | 0                                                  |
-| OS-EXT-SRV-ATTR:ramdisk_id           |                                                    |
-| OS-EXT-SRV-ATTR:reservation_id       | r-k25zzuf3                                         |
-| OS-EXT-SRV-ATTR:root_device_name     | -                                                  |
-| OS-EXT-SRV-ATTR:user_data            | -                                                  |
-| OS-EXT-STS:power_state               | 0                                                  |
-| OS-EXT-STS:task_state                | scheduling                                         |
-| OS-EXT-STS:vm_state                  | building                                           |
-| OS-SRV-USG:launched_at               | -                                                  |
-| OS-SRV-USG:terminated_at             | -                                                  |
-| accessIPv4                           |                                                    |
-| accessIPv6                           |                                                    |
-| adminPass                            | 2Yonn25fQShX                                       |
-| config_drive                         |                                                    |
-| created                              | 2016-09-27T15:46:42Z                               |
-| flavor                               | m1.small (2)                                       |
-| hostId                               |                                                    |
-| id                                   | 92b74cb5-9df2-44ff-a93e-4977596e19f5               |
-| image                                | rhel7xenvm0 (6d6e5048-17b6-49f3-a5a6-fe9e6d6c66ba) |
-| key_name                             | user0                                              |
-| locked                               | False                                              |
-| metadata                             | {}                                                 |
-| name                                 | xen2osp                                            |
-| os-extended-volumes:volumes_attached | []                                                 |
-| progress                             | 0                                                  |
-| security_groups                      | default                                            |
-| status                               | BUILD                                              |
-| tenant_id                            | 8e3a8cd43e84481aa35933075b9b42fb                   |
-| updated                              | 2016-09-27T15:46:42Z                               |
-| user_id                              | 128c53f930e14d86acf5bdc717cc7b4f                   |
-+--------------------------------------+----------------------------------------------------+
-$
-```
+In addition to the main playbook, `xen2osp.yaml` has been created which skips the cinder steps, and boots an ephermeral instance backed by glance.
 
 That's it! If you hit any bugs, let me know.
 

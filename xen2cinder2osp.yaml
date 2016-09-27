@@ -78,15 +78,28 @@
     tags:
     - virtv2v
     environment: '{{ osp_env }}'
+  - name: upload volume to cinder
+    os_volume:
+      state: present
+      display_name: '{{ vm_name }}'
+      size: 20
+      image: '{{ vm_name }}'
+    tags:
+    - cinder
+    environment: '{{ osp_env }}'
   - name: boot an instance in nova
     os_server:
       state: present
       name: '{{ vm_name }}'
-      image: '{{ vm_name }}'
+      boot_volume: '{{ vm_name }}'
       key_name: user0
       flavor: 2
       floating_ip_pools: nova
     register: os_server
+    tags:
+    - nova
     environment: '{{ osp_env }}'
   - debug: var=os_server.server.accessIPv4
+    tags:
+    - nova
 

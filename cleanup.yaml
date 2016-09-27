@@ -1,0 +1,29 @@
+---
+- hosts: builder
+  tasks:
+  - name: delete the instance
+    os_server:
+      state: absent
+      name: '{{ vm_name }}'
+      boot_volume: '{{ vm_name }}'
+      key_name: user0
+      flavor: 2
+      floating_ip_pools: nova
+    register: os_server
+    tags:
+    - nova
+    environment: '{{ osp_env }}'
+  - name: delete the volume
+    os_volume:
+      state: absent
+      display_name: '{{ vm_name }}'
+      size: 20
+      image: '{{ vm_name }}'
+    environment: '{{ osp_env }}'
+  - name: delete the image
+    os_image:
+      state: absent
+      name: '{{ vm_name }}'
+    environment: '{{ osp_env }}'
+    tags:
+    - glance
